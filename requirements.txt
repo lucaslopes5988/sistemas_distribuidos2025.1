@@ -1,0 +1,16 @@
+# Dependências do Sistema de Reliable Multicast com Relógio de Lamport
+# 
+# Este projeto usa principalmente bibliotecas padrão do Python 3.7+
+# Nenhuma dependência externa é obrigatória para funcionamento básico
+
+# Para desenvolvimento e testes (opcionais)
+# pytest>=6.0.0
+# pytest-timeout>=1.4.0
+
+# Para análise de código (opcional)
+# pylint>=2.0.0
+# black>=20.0.0
+# mypy>=0.800
+
+# Nota: O projeto foi desenvolvido para usar apenas bibliotecas padrão
+# do Python para máxima compatibilidade e simplicidade de execução 
