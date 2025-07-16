@@ -275,10 +275,10 @@ Testes incluem:
 
 ## 👥 Autores
 
-- **Equipe**: [Nomes dos integrantes - máx. 5 alunos]
+- **Equipe**: Beatriz Bacelar, Beatriz Cerqueira, Iasmim Marinho, Lucas Lopes, Reginaldo Silva
 - **Disciplina**: Fundamentos de Computação Distribuída
-- **Professor**: [Nome do professor]
-- **Data**: [Data de entrega]
+- **Professor**: Raimundo Macedo
+- **Data**: 16/07/2025
 
 ## 📄 Licença
 
