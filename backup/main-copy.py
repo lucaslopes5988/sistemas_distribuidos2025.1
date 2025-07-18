@@ -16,25 +16,8 @@ import sys
 import time
 import threading
 import signal
-import socket
-import errno
 from typing import List
 from process import DistributedProcess
-
-def is_port_available_global(host: str, port: int) -> bool:
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        s.bind((host, port))
-        s.close()
-        return True
-    except socket.error as e:
-        if e.errno == errno.EADDRINUSE:
-            return False
-        else:
-            print(f"Erro inesperado ao verificar porta {port}: {e}")
-            return False
-    finally:
-        s.close()
 
 class MultiProcessDemo:
     """Demonstração com múltiplos processos em threads separadas."""
@@ -49,13 +32,6 @@ class MultiProcessDemo:
         self.num_processes = num_processes
         self.processes: List[DistributedProcess] = []
         self.running = False
-
-    def is_port_available(self, host: str, port: int) -> bool:
-        """
-        Verifica se uma porta específica está disponível.
-        Retorna True se disponível, False caso contrário.
-        """
-        return is_port_available_global(host, port)
     
     def start(self):
         """Inicia todos os processos."""
@@ -64,59 +40,42 @@ class MultiProcessDemo:
         # Lista de todos os IDs de processos
         all_process_ids = list(range(self.num_processes))
         
-        initial_port = 8000
-        current_port = initial_port
-
         # Cria e inicia os processos
         for i in range(self.num_processes):
-            process_started = False
-            while not process_started:
-                try:
-                    if not self.is_port_available('localhost', current_port):
-                        print(f"Porta {current_port} já está em uso. Tentando a próxima...")
-                        current_port += 1
-                        continue
-                    
-                    process = DistributedProcess(
-                        process_id=i,
-                        host='localhost',
-                        port=current_port
-                    )
-                    
-                    # Inicia o processo com conhecimento dos outros
-                    other_processes = [pid for pid in all_process_ids if pid != i]
-                    process.start(known_processes=other_processes)
-                    
-                    self.processes.append(process)
-                    print(f"Processo {i} iniciado na porta {current_port}")
-                    
-                    process_started = True
-                    current_port += 1
-                    
-                    # Pequena pausa entre inicializações
-                    time.sleep(0.5)
-                    
-                except Exception as e:
-                    print(f"Erro inesperado ao iniciar processo {i} na porta {current_port}: {e}")
-                    current_port += 1
-                    time.sleep(0.1)
+            try:
+                process = DistributedProcess(
+                    process_id=i,
+                    host='localhost',
+                    port=8000 + i
+                )
+                
+                # Inicia o processo com conhecimento dos outros
+                other_processes = [pid for pid in all_process_ids if pid != i]
+                process.start(known_processes=other_processes)
+                
+                self.processes.append(process)
+                print(f"Processo {i} iniciado na porta {8000 + i}")
+                
+                # Pequena pausa entre inicializações
+                time.sleep(0.5)
+                
+            except Exception as e:
+                print(f"Erro ao iniciar processo {i}: {e}")
+                self.stop()
+                return False
         
-        if len(self.processes) == self.num_processes:
-            self.running = True
-            print(f"\nTodos os {len(self.processes)} processos estão rodando!")
-            print("\nPara interagir com os processos:")
-            print("- Cada processo tem sua própria interface de comando")
-            print("- Use 'msg <conteúdo>' para enviar mensagens multicast")
-            print("- Use 'log' para ver eventos e timestamps")
-            print("- Use 'stats' para ver estatísticas")
-            print("- Use 'discover' para descobrir processos online")
-            print("- Use 'quit' para parar um processo")
-            print("- Pressione Ctrl+C para parar todos os processos\n")
-            return True
-        else:
-            print("Não foi possível iniciar todos os processos.")
-            self.stop()
-            return False
+        self.running = True
+        print(f"\nTodos os {len(self.processes)} processos estão rodando!")
+        print("\nPara interagir com os processos:")
+        print("- Cada processo tem sua própria interface de comando")
+        print("- Use 'msg <conteúdo>' para enviar mensagens multicast")
+        print("- Use 'log' para ver eventos e timestamps")
+        print("- Use 'stats' para ver estatísticas")
+        print("- Use 'discover' para descobrir processos online")
+        print("- Use 'quit' para parar um processo")
+        print("- Pressione Ctrl+C para parar todos os processos\n")
+        
+        return True
     
     def wait_for_completion(self):
         """Aguarda a finalização de todos os processos."""
@@ -150,51 +109,37 @@ def signal_handler(signum, frame):
     print("\nRecebido sinal de interrupção. Finalizando...")
     sys.exit(0)
 
-def run_single_process(process_id: int, host: str, initial_port: int, known_processes: List[int]):
+def run_single_process(process_id: int, host: str, port: int, known_processes: List[int]):
     """
     Executa um único processo distribuído.
     
     Args:
         process_id: ID do processo
         host: Host do processo
-        initial_port: Porta inicial a ser tentada para o processo
+        port: Porta do processo
         known_processes: Lista de processos conhecidos
     """
-    current_port = initial_port
-    process_started = False
-
-    while not process_started:
-        print(f"Tentando iniciar processo {process_id} em {host}:{current_port}")
-        if not is_port_available_global(host, current_port):
-            print(f"Porta {current_port} já está em uso. Tentando a próxima...")
-            current_port += 1
-            time.sleep(0.1)
-            continue
-
-        try:
-            with DistributedProcess(process_id, host, current_port) as process:
-                process.start(known_processes)
-                
-                # Aguarda descoberta inicial
-                if known_processes:
-                    print("Aguardando descoberta de processos...")
-                    time.sleep(2.0)
-                    online = process.discover_processes(range(max(known_processes) + 1))
-                    print(f"Processos descobertos: {online}")
-                
-                # Aguarda finalização
-                process.wait_for_shutdown()
-                
-            process_started = True
-
-        except KeyboardInterrupt:
-            print("\nProcesso interrompido pelo usuário.")
-            process_started = True
-        except Exception as e:
-            print(f"Erro no processo na porta {current_port}: {e}")
-            current_port += 1
-            time.sleep(0.1)
-
+    print(f"Iniciando processo {process_id} em {host}:{port}")
+    print(f"Processos conhecidos: {known_processes}")
+    
+    try:
+        with DistributedProcess(process_id, host, port) as process:
+            process.start(known_processes)
+            
+            # Aguarda descoberta inicial
+            if known_processes:
+                print("Aguardando descoberta de processos...")
+                time.sleep(2.0)
+                online = process.discover_processes(range(max(known_processes) + 1))
+                print(f"Processos descobertos: {online}")
+            
+            # Aguarda finalização
+            process.wait_for_shutdown()
+            
+    except KeyboardInterrupt:
+        print("\nProcesso interrompido pelo usuário.")
+    except Exception as e:
+        print(f"Erro no processo: {e}")
 
 def parse_process_list(process_str: str) -> List[int]:
     """
@@ -304,17 +249,17 @@ Exemplos:
             
             process_id = args.process_id
             host = args.host
-            initial_port_attempt = args.port if args.port is not None else (8000 + process_id)
+            port = args.port or (8000 + process_id)
             
             known_processes = []
             if args.processes:
                 known_processes = parse_process_list(args.processes)
             
-            run_single_process(process_id, host, initial_port_attempt, known_processes)
+            run_single_process(process_id, host, port, known_processes)
     
     except Exception as e:
         print(f"Erro: {e}")
         sys.exit(1)
 
 if __name__ == '__main__':
-    main()
+    main() 

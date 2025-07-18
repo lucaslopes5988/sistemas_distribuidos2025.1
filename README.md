@@ -76,6 +76,7 @@ python main.py --demo
 # Executa demonstração com N processos
 python main.py --demo --num-processes 4
 ```
+Observação importante: usar "python3" nos comandos ao invés "python" a depender de como a sua variável de ambiente python esteja configurada.
 
 #### 2. Processos Individuais
 
